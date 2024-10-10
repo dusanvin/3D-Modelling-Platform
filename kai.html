@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <!-- Stelle sicher, dass model-viewer geladen wird -->
+    <script type="module" src="js/model-viewer.min.js"></script>
+</head>
+<body>
+    <header class="bg-light p-3 d-flex justify-content-between">
+        <h6>
+            <a href="/3d/kai.html" class="text-dark"><strong>3D</strong>igiLLab</a>
+        </h6>
+        <div>
+            <button class="btn btn-dark btn-sm" data-toggle="modal" data-target="#uploadModal">
+                <i class="fa fa-upload mr-1"></i> Hochladen
+            </button>
+            <button class="btn btn-secondary btn-sm" data-toggle="modal" data-target="#modelsModal">
+                <i class="fa fa-cube mr-1"></i> Modelle
+            </button>
+        </div>
+    </header>
+
+    <!-- Modell -->
+    <main id="modelDisplay" class="container mt-4"></main>
+        <div id="modelViewerContainer" style="height: 500px; width: 500px; margin-left:auto; margin-right: auto;"></div>
+    </main>
+
+    <!-- Footer -->
+    <div id="footer-placeholder"></div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Modell hochladen</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" style="font-size: 14px;">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <p style="font-size:12px;">
+                            Wähle sowohl eine
+                            <span data-toggle="tooltip" title="Eine *.glb-Datei ist ein kompaktes binäres 3D-Modellformat, das Geometrie, Materialien, Texturen und Animationen enthält.">
+                                <span style="color: #ad007c;">*.glb-Datei</span>
+                            </span> 
+                            als auch die passende 
+                            <span data-toggle="tooltip" title="Eine *.webp-Datei ist ein modernes Bilddateiformat. Sie werden oft zusätzlich zu *.glb-Dateien verwendet, um Texturen effizienter zu speichern und die Leistung von 3D-Modellen zu verbessern.">
+                                <span style="color: #ad007c;">*.webp-Datei</span>
+                            </span>
+                            für das Modell aus.
+                        </p>
+                        <div class="form-group">
+                            <label for="glbFile"><strong>GLB-Datei</strong></label>
+                            <input type="file" class="form-control-file" id="glbFile" name="glbFile" accept=".glb" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="webpFile"><strong>WEBP-Datei</strong></label>
+                            <input type="file" class="form-control-file" id="webpFile" name="webpFile" accept=".webp" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-dark btn-sm" id="saveFiles">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Models Modal -->
+    <div class="modal fade" id="modelsModal" tabindex="-1" role="dialog" aria-labelledby="modelsModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modelsModalLabel">Verfügbare Modelle</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <p>Wähle eines der verfügbaren Modelle aus.</p>
+                <div class="modal-body" id="modelList">
+                    <!-- Liste der Modelle wird hier dynamisch hinzugefügt -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vollständiges jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Popper.js (benötigt für Bootstrap-Tooltips) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+
+    <!-- Bootstrap.js -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+
+    <script>
+        // Aktivieren der Bootstrap-Tooltips
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+
+        document.getElementById('saveFiles').onclick = function() {
+            const formData = new FormData(document.getElementById('uploadForm'));
+        
+            fetch('upload.php', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    if (data.glb && data.webp) {
+                        $('#uploadModal').modal('hide');
+                        updateModelList(); // Nach dem Upload die Liste aktualisieren
+                    } else {
+                        alert('Fehler: ' + data.message);
+                    }
+                } else {
+                    alert('Unerwartetes Server-Verhalten');
+                }
+            })
+            .catch(error => {
+                console.error('Fehler:', error);
+            });
+        };        
+
+        function updateModelList() {
+            fetch('list_models.php')
+                .then(response => response.json())
+                .then(data => {
+                    const modelList = document.getElementById('modelList');
+                    modelList.innerHTML = ''; // Liste leeren
+        
+                    if (data.length > 0) {
+                        data.forEach(model => {
+                            const modelItem = document.createElement('div');
+                            modelItem.innerHTML = `<button style="color: #ad007c; font-size:14px;" class="btn btn-link" onclick="loadModel('${model.glb}', '${model.webp}')">${model.name}</button>`;
+                            modelList.appendChild(modelItem);
+                        });
+                    } else {
+                        modelList.innerHTML = '<p>Keine Modelle gefunden.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler beim Laden der Modelle:', error);
+                });
+        }
+
+        function loadModel(glbFile, webpFile) {
+            document.getElementById('modelViewerContainer').innerHTML = `
+                <model-viewer style="width: 500px; height: 500px;" 
+                src="imports/${glbFile}" 
+                ar 
+                poster="imports/${webpFile}" 
+                shadow-intensity="1" 
+                camera-controls 
+                touch-action="pan-y">
+                </model-viewer>
+            `;
+            $('#modelsModal').modal('hide');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateModelList(); // Modelle beim Laden der Seite abrufen
+        });
+        
+        $(function(){
+        $("#footer-placeholder").load("footer.html");
+        });
+    </script>
+</body>
+</html>
