@@ -44,7 +44,7 @@
                 </div>
                 <div class="modal-body" style="font-size: 14px;">
                     <form id="uploadForm" enctype="multipart/form-data">
-                        <p style="font-size:12px;">
+                        <p style="font-size:12px;" class="mb-1">
                             Wähle sowohl eine
                             <span data-toggle="tooltip" title="Eine *.glb-Datei ist ein kompaktes binäres 3D-Modellformat, das Geometrie, Materialien, Texturen und Animationen enthält.">
                                 <span style="color: #ad007c;">*.glb-Datei</span>
@@ -55,6 +55,9 @@
                             </span>
                             für das Modell aus.
                         </p>
+                        <p style="font-size:12px;">
+                            <strong>Hinweis: Die maximale Gesamtgröße für den Dateiupload beträgt 25 MB.</strong>
+                        </p>
                         <div class="form-group">
                             <label for="glbFile"><strong>GLB-Datei</strong></label>
                             <input type="file" class="form-control-file" id="glbFile" name="glbFile" accept=".glb" required>
@@ -64,6 +67,11 @@
                             <input type="file" class="form-control-file" id="webpFile" name="webpFile" accept=".webp" required>
                         </div>
                     </form>
+
+                    <!-- Upload-Statusanzeige -->
+                    <div id="uploadStatus">
+                        <!-- Hier wird der Fortschritt angezeigt -->
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Abbrechen</button>
@@ -109,28 +117,51 @@
 
         document.getElementById('saveFiles').onclick = function() {
             const formData = new FormData(document.getElementById('uploadForm'));
-        
-            fetch('upload.php', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    if (data.glb && data.webp) {
-                        $('#uploadModal').modal('hide');
-                        updateModelList(); // Nach dem Upload die Liste aktualisieren
-                    } else {
-                        alert('Fehler: ' + data.message);
-                    }
-                } else {
-                    alert('Unerwartetes Server-Verhalten');
+            const xhr = new XMLHttpRequest();
+
+            // Speichert den Startzeitpunkt
+            const startTime = new Date().getTime();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100); // Berechnet den Fortschritt in Prozent
+                    const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2); // Hochgeladene Größe in MB
+                    const totalMB = (e.total / (1024 * 1024)).toFixed(2); // Gesamtgröße in MB
+                    const currentTime = new Date().getTime();
+                    const duration = (currentTime - startTime) / 1000; // Verstrichene Zeit in Sekunden
+                    const speedMbit = ((e.loaded * 8 / (1024 * 1024)) / duration).toFixed(2); // Uploadgeschwindigkeit in Mbit/s
+                    
+                    const uploadStatus = document.getElementById('uploadStatus');
+                    uploadStatus.innerHTML = `
+                        <strong>Upload:</strong><br>
+                        ${percentComplete}% von 100% bei ${speedMbit} Mbit/s von <strong>${totalMB} MB</strong><br>
+                    `;
                 }
-            })
-            .catch(error => {
-                console.error('Fehler:', error);
             });
-        };        
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            $('#uploadModal').modal('hide');
+                            updateModelList(); // Nach dem Upload die Liste aktualisieren
+                        } else {
+                            alert('Fehler: ' + response.message);
+                        }
+                    } else {
+                        alert('Unerwartetes Server-Verhalten');
+                    }
+
+                    // Statusanzeige zurücksetzen
+                    document.getElementById('uploadStatus').innerHTML = '';
+                }
+            };
+
+            // Sende die Daten an den Server
+            xhr.open('POST', 'upload.php', true);
+            xhr.send(formData);
+        };
 
         function updateModelList() {
             fetch('list_models.php')
@@ -173,7 +204,7 @@
         });
         
         $(function(){
-        $("#footer-placeholder").load("footer.html");
+            $("#footer-placeholder").load("footer.html");
         });
     </script>
 </body>
