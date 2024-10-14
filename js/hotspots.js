@@ -57,8 +57,8 @@ function addHotspotToList(hotspot) {
     listItem.innerHTML = `
         ${hotspot.label}
         <div>
-            <button class="btn btn-secondary btn-sm editHotspot" data-label="${hotspot.label}"><i class="fa fa-pencil"></i></button>
-            <button class="btn btn-danger btn-sm deleteHotspot" data-label="${hotspot.label}"><i class="fa fa-trash"></i></button>
+            <button class="btn btn-secondary btn-sm editHotspot" style="display: none;" data-label="${hotspot.label}"><i class="fa fa-pencil"></i></button>
+            <button class="btn btn-secondary btn-sm deleteHotspot" data-label="${hotspot.label}"><i class="fa fa-trash"></i></button>
         </div>
     `;
 
@@ -77,7 +77,7 @@ function addHotspotToList(hotspot) {
     });
 }
 
-// Funktion zum Löschen eines Hotspots
+// Löscht einen Hotspot aus dem Modell und der Liste
 function deleteHotspot(label) {
     const modelViewer = document.getElementById('modelViewer');
 
@@ -87,7 +87,7 @@ function deleteHotspot(label) {
         modelViewer.removeChild(hotspotButton);
     }
 
-    // Entfernt den Hotspot aus der Liste
+    // Entfernt den Hotspot aus der Liste der Hotspots
     hotspots = hotspots.filter(h => h.label !== label);
 
     // Aktualisiert die Hotspot-Liste
@@ -95,27 +95,9 @@ function deleteHotspot(label) {
     const listItem = hotspotList.querySelector(`.deleteHotspot[data-label="${label}"]`).parentElement.parentElement;
     hotspotList.removeChild(listItem);
 
-    // Send request to server to delete the hotspot
-    const formData = new FormData();
-    formData.append('model_name', currentModel);
-    formData.append('hotspot_label', label);
-
-    fetch('delete_hotspot.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert(data.message);
-    })
-    .catch(error => {
-        console.error('Fehler beim Löschen des Hotspots:', error);
-    });
-
-    // Speichert die aktualisierte Liste in der JSON-Datei
+    // Speichert die geänderte Liste der Hotspots für das aktuelle Modell
     saveHotspotsForModel(currentModel);
 }
-
 
 // Hotspots für das aktuelle Modell anzeigen, wenn ein neues Modell geladen wird
 function loadModel(glbFile, webpFile) {
@@ -236,7 +218,11 @@ function saveHotspotsForModel(modelName) {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.message);
+        if (data.message) {
+            alert(data.message);
+        } else {
+            console.error("Fehler beim Speichern der Hotspots:", data);
+        }
     })
     .catch(error => {
         console.error('Fehler beim Speichern der Hotspots:', error);

@@ -12,7 +12,7 @@ if (isset($_POST['model_name']) && isset($_POST['hotspots'])) {
     // Berechtigungen der Datei auf 755 setzen
     chmod($filePath, 0755);
 
-    // echo json_encode(['message' => 'Hotspots erfolgreich gespeichert.']);
+    echo json_encode(['message' => 'Hotspots erfolgreich gespeichert.']);
 } else {
     echo json_encode(['message' => 'Ungültige Eingabedaten.']);
 }
