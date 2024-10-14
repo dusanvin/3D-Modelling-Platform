@@ -41,3 +41,43 @@ document.getElementById('saveFiles').onclick = function() {
     xhr.open('POST', 'upload.php', true);
     xhr.send(formData);
 };
+
+document.getElementById('saveFiles').onclick = function() {
+    const formData = new FormData(document.getElementById('uploadForm'));
+    const xhr = new XMLHttpRequest();
+
+    const startTime = new Date().getTime();
+
+    console.log("Upload gestartet...");
+
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            console.log("Upload Fortschritt:", percentComplete);
+        }
+    });
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            console.log("Upload abgeschlossen:", xhr.status);
+
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                console.log("Serverantwort:", response);
+
+                if (response.message) {
+                    $('#uploadModal').modal('hide');
+                    updateModelList();
+                } else {
+                    alert('Fehler: ' + response.message);
+                }
+            } else {
+                alert('Unerwartetes Server-Verhalten');
+            }
+        }
+    };
+
+    xhr.open('POST', 'upload.php', true);
+    xhr.send(formData);
+};
+
