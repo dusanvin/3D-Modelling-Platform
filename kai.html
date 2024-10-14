@@ -26,9 +26,46 @@
         </div>
     </header>
 
-    <!-- Modell -->
-    <main id="modelDisplay" class="container mt-4"></main>
-        <div id="modelViewerContainer" style="height: 600px; width: 600px; margin-left:auto; margin-right: auto;"><p class="text-center" style="margin-top:4em; font-size:14px;"><span><strong>Lade ein neues Modell hoch</strong></span> oder <span><strong>wähle ein verfügbares Modell aus</strong></span> der Liste der bereits hochgeladenen Modelle aus.</p></div>
+    <!-- Modell und Einstellungen -->
+    <main id="modelDisplay" class="container mt-4" style="margin-bottom:300px;">
+        <div class="row">
+            <div class="col-md-8" id="modelViewerContainer" style="height: 600px; width: 600px; margin-left:auto; margin-right: auto;">
+                <p class="text-center" style="margin-top:4em; font-size:14px;">
+                    <span><strong>Lade ein neues Modell hoch</strong></span> oder 
+                    <span><strong>wähle ein verfügbares Modell aus</strong></span> der Liste der bereits hochgeladenen Modelle aus.
+                </p>
+            </div>
+            <!-- Einstellungen-Spalte -->
+            <div class="col-md-4" id="settingsColumn" style="display:none;">
+                <div class="card bg-light shadow-sm mb-3" style="border: none;">
+                    <div class="card-header" style="border: none;">
+                        <h6 class="mb-0 text-uppercase fw-bold font-medium">Einstellungen</h6>
+                    </div>
+                    <div class="card-body" style="font-size: 14px;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="" id="rotateCheckbox">
+                            <label class="form-check-label" for="rotateCheckbox">
+                                Rotieren
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hotspot-Steuerung -->
+                <div class="card bg-light shadow-sm" style="border: none;">
+                    <div class="card-header" style="border: none;">
+                        <h6 class="mb-0 text-uppercase fw-bold font-medium">Hotspots</h6>
+                    </div>
+                    <div class="card-body" style="font-size: 14px;">
+                        <button class="btn btn-primary btn-sm" id="createHotspotButton">
+                            <i class="fa fa-map-marker"></i> Hotspot hinzufügen
+                        </button>
+                        <!-- Liste der Hotspots -->
+                        <ul id="hotspotList" class="list-group mt-3"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Footer -->
@@ -98,6 +135,27 @@
         </div>
     </div>
 
+    <!-- Hotspot Modal -->
+    <div class="modal fade" id="hotspotModal" tabindex="-1" role="dialog" aria-labelledby="hotspotModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="hotspotModalLabel">Hotspot Label</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control" id="hotspotLabel" placeholder="Gib einen Hotspot-Namen ein">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="saveHotspotBtn">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Vollständiges jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
@@ -106,142 +164,56 @@
 
     <!-- Bootstrap.js -->
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="js/modelActions.js"></script>
+    <script src="js/hotspots.js"></script>
 
-
-    <script>
-        // Aktivieren der Bootstrap-Tooltips
-        $(function () {
-            $('[data-toggle="tooltip"]').tooltip();
-        });
-
-        document.getElementById('saveFiles').onclick = function() {
-            const formData = new FormData(document.getElementById('uploadForm'));
-            const xhr = new XMLHttpRequest();
-
-            // Speichert den Startzeitpunkt
-            const startTime = new Date().getTime();
-            
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    const percentComplete = Math.round((e.loaded / e.total) * 100); // Berechnet den Fortschritt in Prozent
-                    const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2); // Hochgeladene Größe in MB
-                    const totalMB = (e.total / (1024 * 1024)).toFixed(2); // Gesamtgröße in MB
-                    const currentTime = new Date().getTime();
-                    const duration = (currentTime - startTime) / 1000; // Verstrichene Zeit in Sekunden
-                    const speedMbit = ((e.loaded * 8 / (1024 * 1024)) / duration).toFixed(2); // Uploadgeschwindigkeit in Mbit/s
-                    
-                    const uploadStatus = document.getElementById('uploadStatus');
-                    uploadStatus.innerHTML = `
-                        <strong>Upload:</strong><br>
-                        ${percentComplete}% von 100% bei ${speedMbit} Mbit/s von <strong>${totalMB} MB</strong><br>
-                    `;
-                }
-            });
-
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === XMLHttpRequest.DONE) {
-                    if (xhr.status === 200) {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.message) {
-                            $('#uploadModal').modal('hide');
-                            updateModelList(); // Nach dem Upload die Liste aktualisieren
-                        } else {
-                            alert('Fehler: ' + response.message);
-                        }
-                    } else {
-                        alert('Unerwartetes Server-Verhalten');
-                    }
-
-                    // Statusanzeige zurücksetzen
-                    document.getElementById('uploadStatus').innerHTML = '';
-                }
-            };
-
-            // Sende die Daten an den Server
-            xhr.open('POST', 'upload.php', true);
-            xhr.send(formData);
-        };
-
-         // Funktion zum Laden der Modell-Liste mit Löschen-Buttons
-        function updateModelList() {
-            fetch('list_models.php')
-                .then(response => response.json())
-                .then(data => {
-                    const modelList = document.getElementById('modelList');
-                    modelList.innerHTML = ''; // Liste leeren
-            
-                    if (data.length > 0) {
-                        data.forEach(model => {
-                            const modelItem = document.createElement('div');
-                            modelItem.innerHTML = `
-                                <div class="d-flex justify-content-between align-items-center bg-light p-1 border-bottom">
-                                    <button style="color: #ad007c; font-size:14px;" class="btn btn-link px-1 py-0" onclick="loadModel('${model.glb}', '${model.webp}')">${model.name}</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="confirmDelete('${model.glb}', '${model.webp}')">
-                                        <i class="fa fa-trash"></i>
-                                    </button>
-                                </div>
-                            `;
-                            modelList.appendChild(modelItem);
-                        });
-                    } else {
-                        modelList.innerHTML = '<p>Keine Modelle gefunden.</p>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Fehler beim Laden der Modelle:', error);
-                });
+    <style>
+        input[type=checkbox]{
+            accent-color: #343a40;
         }
+    </style>
 
-        // Funktion zum Anzeigen des Bestätigungsdialogs und Löschen
-        function confirmDelete(glbFile, webpFile) {
-            if (confirm(`Möchten Sie das Modell ${glbFile} wirklich löschen?`)) {
-                deleteFiles(glbFile, webpFile);
-            }
+<style>
+    /* Punkt */
+    .hotspot{
+      display: block;
+      width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      border: none;
+      background-color: white;
+      border: 3px solid black;
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+  
+    .hotspot[slot="hotspot-hand"]{
+      --min-hotspot-opacity: 0;
+      background-color: red;
+    }
+  
+    .hotspot[slot="hotspot-foot"]:not([data-visible]) {
+      background-color: transparent;
+      border: 3px solid blue;
+    }
+  
+    /* Label des Hotspots */
+    .annotation {
+        background-color: white;
+        font-size: 12px;
+        position: absolute;
+        transform: translate(10px, 10px);
+        border-radius: 10px;
+        padding: 10px;
+        text-align: left !important;
+        white-space: nowrap;
         }
-
-        // Funktion zum Löschen der Dateien
-        function deleteFiles(glbFile, webpFile) {
-            const formData = new FormData();
-            formData.append('glb', glbFile);
-            formData.append('webp', webpFile);
-
-            fetch('delete.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                updateModelList(); // Nach dem Löschen die Liste aktualisieren
-            })
-            .catch(error => {
-                console.error('Fehler beim Löschen der Dateien:', error);
-            });
-        }
-
-        
-        // Funktion zum Laden eines Modells
-        function loadModel(glbFile, webpFile) {
-            document.getElementById('modelViewerContainer').innerHTML = `
-                <model-viewer style="width: 500px; height: 500px;" 
-                src="imports/${glbFile}" 
-                ar 
-                poster="imports/${webpFile}" 
-                shadow-intensity="1" 
-                camera-controls 
-                touch-action="pan-y">
-                </model-viewer>
-            `;
-            $('#modelsModal').modal('hide');
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            updateModelList(); // Modelle beim Laden der Seite abrufen
-        });
-        
-        $(function(){
-            $("#footer-placeholder").load("footer.html");
-        });
-    </script>
+    /* This keeps child nodes hidden while the element loads */
+    :not(:defined) > * {
+      display: none;
+    }
+  </style>
 </body>
 </html>

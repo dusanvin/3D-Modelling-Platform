@@ -1,0 +1,547 @@
+Fangen wir neu an! Ich möchte die Funktionalität für Hotspots in den Modellen implementieren. Das hier ist mein File für die index.html, das funktioniert: <!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <!-- Stelle sicher, dass model-viewer geladen wird -->
+    <script type="module" src="js/model-viewer.min.js"></script>
+</head>
+<body>
+    <header class="bg-light p-3 d-flex justify-content-between mb-4">
+        <div>
+            <a href="/3d/kai.html" class="text-dark">
+                <img src="/3d/img/DigiLLab-Logo_cropped.png" alt="" style="max-width: 200px;">
+            </a>
+        </div>
+        <div style="padding-top: 0.6em;">
+            <button class="btn btn-dark btn-sm" data-toggle="modal" data-target="#uploadModal">
+                <i class="fa fa-upload mr-1"></i> Hochladen
+            </button>
+            <button class="btn btn-secondary btn-sm" data-toggle="modal" data-target="#modelsModal">
+                <i class="fa fa-cube mr-1"></i> Modelle
+            </button>
+        </div>
+    </header>
+
+    <!-- Modell und Einstellungen -->
+    <main id="modelDisplay" class="container mt-4" style="margin-bottom:300px;">
+        <div class="row">
+            <div class="col-md-8" id="modelViewerContainer" style="height: 600px; width: 600px; margin-left:auto; margin-right: auto;">
+                <p class="text-center" style="margin-top:4em; font-size:14px;">
+                    <span><strong>Lade ein neues Modell hoch</strong></span> oder 
+                    <span><strong>wähle ein verfügbares Modell aus</strong></span> der Liste der bereits hochgeladenen Modelle aus.
+                </p>
+            </div>
+            <!-- Einstellungen-Spalte -->
+            <div class="col-md-4" id="settingsColumn" style="display:none;">
+                <div class="card bg-light shadow-sm" style="border: none;">
+                    <div class="card-header" style="border: none;">
+                        <h6 class="mb-0 text-uppercase fw-bold font-medium">Einstellungen</h6>
+                    </div>
+                    <div class="card-body" style="font-size: 14px;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="" id="rotateCheckbox">
+                            <label class="form-check-label" for="rotateCheckbox">
+                                Rotieren
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <div id="footer-placeholder"></div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Modell hochladen</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" style="font-size: 14px;">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <p style="font-size:14px;" class="mb-2">
+                            Wähle sowohl eine
+                            <span data-toggle="tooltip" title="Eine *.glb-Datei ist ein kompaktes binäres 3D-Modellformat, das Geometrie, Materialien, Texturen und Animationen enthält.">
+                                <span style="color: #ad007c;">*.glb-Datei</span>
+                            </span> 
+                            als auch die passende 
+                            <span data-toggle="tooltip" title="Eine *.webp-Datei ist ein modernes Bilddateiformat. Sie werden oft zusätzlich zu *.glb-Dateien verwendet, um Texturen effizienter zu speichern und die Leistung von 3D-Modellen zu verbessern.">
+                                <span style="color: #ad007c;">*.webp-Datei</span>
+                            </span>
+                            für das Modell aus. Die max. Gesamtgröße für den <strong>Dateiupload beträgt 25 MB. Beachte, dass beide Dateien den gleichen Namen tragen müssen.</strong>
+                        </p>
+                        <div class="form-group">
+                            <label for="glbFile"><strong>GLB-Datei</strong></label>
+                            <input type="file" class="form-control-file" id="glbFile" name="glbFile" accept=".glb" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="webpFile"><strong>WEBP-Datei</strong></label>
+                            <input type="file" class="form-control-file" id="webpFile" name="webpFile" accept=".webp" required>
+                        </div>
+                    </form>
+
+                    <!-- Upload-Statusanzeige -->
+                    <div id="uploadStatus">
+                        <!-- Hier wird der Fortschritt angezeigt -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-dark btn-sm" id="saveFiles">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Models Modal -->
+    <div class="modal fade" id="modelsModal" tabindex="-1" role="dialog" aria-labelledby="modelsModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modelsModalLabel">Verfügbare Modelle</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <p class="pl-3 pt-2 mb-0" style="font-size: 14px;">Wähle eines der verfügbaren Modelle aus.</p>
+                <div class="modal-body" id="modelList">
+                    <!-- Liste der Modelle wird hier dynamisch hinzugefügt -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vollständiges jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Popper.js (benötigt für Bootstrap-Tooltips) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+
+    <!-- Bootstrap.js -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        // Aktivieren der Bootstrap-Tooltips
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+
+        document.getElementById('saveFiles').onclick = function() {
+            const formData = new FormData(document.getElementById('uploadForm'));
+            const xhr = new XMLHttpRequest();
+
+            // Speichert den Startzeitpunkt
+            const startTime = new Date().getTime();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100); // Berechnet den Fortschritt in Prozent
+                    const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2); // Hochgeladene Größe in MB
+                    const totalMB = (e.total / (1024 * 1024)).toFixed(2); // Gesamtgröße in MB
+                    const currentTime = new Date().getTime();
+                    const duration = (currentTime - startTime) / 1000; // Verstrichene Zeit in Sekunden
+                    const speedMbit = ((e.loaded * 8 / (1024 * 1024)) / duration).toFixed(2); // Uploadgeschwindigkeit in Mbit/s
+                    
+                    const uploadStatus = document.getElementById('uploadStatus');
+                    uploadStatus.innerHTML = `
+                        <strong>Upload:</strong><br>
+                        ${percentComplete}% von 100% bei ${speedMbit} Mbit/s von <strong>${totalMB} MB</strong><br>
+                    `;
+                }
+            });
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            $('#uploadModal').modal('hide');
+                            updateModelList(); // Nach dem Upload die Liste aktualisieren
+                        } else {
+                            alert('Fehler: ' + response.message);
+                        }
+                    } else {
+                        alert('Unerwartetes Server-Verhalten');
+                    }
+
+                    // Statusanzeige zurücksetzen
+                    document.getElementById('uploadStatus').innerHTML = '';
+                }
+            };
+
+            // Sende die Daten an den Server
+            xhr.open('POST', 'upload.php', true);
+            xhr.send(formData);
+        };
+
+         // Funktion zum Laden der Modell-Liste mit Löschen-Buttons
+        function updateModelList() {
+            fetch('list_models.php')
+                .then(response => response.json())
+                .then(data => {
+                    const modelList = document.getElementById('modelList');
+                    modelList.innerHTML = ''; // Liste leeren
+            
+                    if (data.length > 0) {
+                        data.forEach(model => {
+                            const modelItem = document.createElement('div');
+                            modelItem.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-center bg-light p-1 border-bottom">
+                                    <button style="color: #ad007c; font-size:14px;" class="btn btn-link px-1 py-0" onclick="loadModel('${model.glb}', '${model.webp}')">${model.name}</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="confirmDelete('${model.glb}', '${model.webp}')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            `;
+                            modelList.appendChild(modelItem);
+                        });
+                    } else {
+                        modelList.innerHTML = '<p>Keine Modelle gefunden.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler beim Laden der Modelle:', error);
+                });
+        }
+
+        // Funktion zum Anzeigen des Bestätigungsdialogs und Löschen
+        function confirmDelete(glbFile, webpFile) {
+            if (confirm(`Möchten Sie das Modell ${glbFile} wirklich löschen?`)) {
+                deleteFiles(glbFile, webpFile);
+            }
+        }
+
+        // Funktion zum Löschen der Dateien
+        function deleteFiles(glbFile, webpFile) {
+            const formData = new FormData();
+            formData.append('glb', glbFile);
+            formData.append('webp', webpFile);
+
+            fetch('delete.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                updateModelList(); // Nach dem Löschen die Liste aktualisieren
+            })
+            .catch(error => {
+                console.error('Fehler beim Löschen der Dateien:', error);
+            });
+        }
+
+        // Funktion zum Laden eines Modells und Anzeigen der Einstellungen
+        function loadModel(glbFile, webpFile) {
+            // Modell laden
+            document.getElementById('modelViewerContainer').innerHTML = `
+                <model-viewer id="modelViewer" style="width: 700px; height: 700px;" 
+                src="imports/${glbFile}" 
+                ar 
+                poster="imports/${webpFile}" 
+                shadow-intensity="1" 
+                camera-controls 
+                touch-action="pan-y">
+                </model-viewer>
+            `;
+            $('#modelsModal').modal('hide');
+
+            // Einstellungen anzeigen
+            document.getElementById('settingsColumn').style.display = 'block';
+
+            // Checkbox für Rotieren einbinden
+            document.getElementById('rotateCheckbox').addEventListener('change', function() {
+                const modelViewer = document.getElementById('modelViewer');
+                if (this.checked) {
+                    modelViewer.setAttribute('auto-rotate', '');
+                } else {
+                    modelViewer.removeAttribute('auto-rotate');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateModelList(); // Modelle beim Laden der Seite abrufen
+        });
+        
+        $(function(){
+            $("#footer-placeholder").load("footer.html");
+        });
+    </script>
+    <style>
+        input[type=checkbox]{
+            accent-color: #343a40;
+        }
+    </style>
+</body>
+</html> Das hier sind meine Files für die Modelle: upload.php mit <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+$target_dir = "imports/";
+$glb_file = $target_dir . basename($_FILES["glbFile"]["name"]);
+$webp_file = $target_dir . basename($_FILES["webpFile"]["name"]);
+
+$response = [];
+
+if (isset($_FILES["glbFile"]) && isset($_FILES["webpFile"])) {
+    $uploadOk = 1;
+
+    // Überprüfen, ob es Upload-Fehler gibt
+    if ($_FILES["glbFile"]["error"] !== UPLOAD_ERR_OK) {
+        $uploadOk = 0;
+        $response['message'] = 'Fehler beim Hochladen der GLB-Datei: ' . $_FILES["glbFile"]["error"];
+    }
+    if ($_FILES["webpFile"]["error"] !== UPLOAD_ERR_OK) {
+        $uploadOk = 0;
+        $response['message'] = 'Fehler beim Hochladen der WEBP-Datei: ' . $_FILES["webpFile"]["error"];
+    }
+
+    // Überprüfen, ob die Dateien gültig sind
+    if ($uploadOk && move_uploaded_file($_FILES["glbFile"]["tmp_name"], $glb_file) && 
+        move_uploaded_file($_FILES["webpFile"]["tmp_name"], $webp_file)) {
+        $response['message'] = 'Dateien erfolgreich hochgeladen';
+        $response['glb'] = $_FILES["glbFile"]["name"];
+        $response['webp'] = $_FILES["webpFile"]["name"];
+    } else {
+        $response['message'] = 'Fehler beim Speichern der Dateien';
+    }
+} else {
+    $response['message'] = 'Keine Dateien zum Hochladen gefunden';
+}
+
+echo json_encode($response);
+?>
+und list_models.php mit <?php
+$dir = 'imports/';
+$models = [];
+
+// Verzeichnis nach .glb-Dateien durchsuchen
+if (is_dir($dir)) {
+    if ($dh = opendir($dir)) {
+        while (($file = readdir($dh)) !== false) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'glb') {
+                $model_name = pathinfo($file, PATHINFO_FILENAME);
+                $webp_file = $model_name . '.webp';
+
+                // Überprüfen, ob die dazugehörige .webp-Datei existiert
+                if (file_exists($dir . $webp_file)) {
+                    $models[] = [
+                        'name' => $model_name,
+                        'glb' => $file,
+                        'webp' => $webp_file
+                    ];
+                }
+            }
+        }
+        closedir($dh);
+    }
+}
+
+// Modelle als JSON zurückgeben
+echo json_encode($models);
+?>
+und delete.php mit <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+$target_dir = "imports/";
+
+if (isset($_POST['glb']) && isset($_POST['webp'])) {
+    $glb_file = $target_dir . basename($_POST['glb']);
+    $webp_file = $target_dir . basename($_POST['webp']);
+
+    $response = [];
+
+    // Überprüfen, ob die Dateien existieren und löschen
+    if (file_exists($glb_file) && file_exists($webp_file)) {
+        if (unlink($glb_file) && unlink($webp_file)) {
+            $response['message'] = 'Dateien erfolgreich gelöscht';
+        } else {
+            $response['message'] = 'Fehler beim Löschen der Dateien';
+        }
+    } else {
+        $response['message'] = 'Eine oder beide Dateien wurden nicht gefunden';
+    }
+
+    echo json_encode($response);
+} else {
+    echo json_encode(['message' => 'Keine Dateien zum Löschen angegeben']);
+}
+?>
+ und mein js/modelActions.js "function updateModelList() {
+    fetch('list_models.php')
+        .then(response => response.json())
+        .then(data => {
+            const modelList = document.getElementById('modelList');
+            modelList.innerHTML = '';
+
+            if (data.length > 0) {
+                data.forEach(model => {
+                    const modelItem = document.createElement('div');
+                    modelItem.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center bg-light p-1 border-bottom">
+                            <button style="color: #ad007c; font-size:14px;" class="btn btn-link px-1 py-0" onclick="loadModel('${model.glb}', '${model.webp}')">${model.name}</button>
+                            <button class="btn btn-secondary btn-sm" onclick="confirmDelete('${model.glb}', '${model.webp}')">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    modelList.appendChild(modelItem);
+                });
+            } else {
+                modelList.innerHTML = '<p>Keine Modelle gefunden.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Modelle:', error);
+        });
+}
+
+function confirmDelete(glbFile, webpFile) {
+    if (confirm(`Möchten Sie das Modell ${glbFile} wirklich löschen?`)) {
+        deleteFiles(glbFile, webpFile);
+    }
+}
+
+function deleteFiles(glbFile, webpFile) {
+    const formData = new FormData();
+    formData.append('glb', glbFile);
+    formData.append('webp', webpFile);
+
+    fetch('delete.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        updateModelList();
+    })
+    .catch(error => {
+        console.error('Fehler beim Löschen der Dateien:', error);
+    });
+}
+
+function loadModel(glbFile, webpFile) {
+    document.getElementById('modelViewerContainer').innerHTML = `
+        <model-viewer id="modelViewer" style="width: 500px; height: 500px;" 
+        src="imports/${glbFile}" 
+        ar 
+        poster="imports/${webpFile}" 
+        shadow-intensity="1" 
+        camera-controls 
+        touch-action="pan-y">
+        </model-viewer>
+    `;
+    $('#modelsModal').modal('hide');
+    document.getElementById('settingsColumn').style.display = 'block';
+
+    document.getElementById('rotateCheckbox').addEventListener('change', function() {
+        const modelViewer = document.getElementById('modelViewer');
+        if (this.checked) {
+            modelViewer.setAttribute('auto-rotate', '');
+        } else {
+            modelViewer.removeAttribute('auto-rotate');
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateModelList();
+});
+" und meine js/upload.js "document.getElementById('saveFiles').onclick = function() {
+    const formData = new FormData(document.getElementById('uploadForm'));
+    const xhr = new XMLHttpRequest();
+
+    const startTime = new Date().getTime();
+    
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+            const totalMB = (e.total / (1024 * 1024)).toFixed(2);
+            const currentTime = new Date().getTime();
+            const duration = (currentTime - startTime) / 1000;
+            const speedMbit = ((e.loaded * 8 / (1024 * 1024)) / duration).toFixed(2);
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = `
+                <strong>Upload:</strong><br>
+                ${percentComplete}% von 100% bei ${speedMbit} Mbit/s von <strong>${totalMB} MB</strong><br>
+            `;
+        }
+    });
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.message) {
+                    $('#uploadModal').modal('hide');
+                    updateModelList();
+                } else {
+                    alert('Fehler: ' + response.message);
+                }
+            } else {
+                alert('Unerwartetes Server-Verhalten');
+            }
+            document.getElementById('uploadStatus').innerHTML = '';
+        }
+    };
+
+    xhr.open('POST', 'upload.php', true);
+    xhr.send(formData);
+};
+" Gerne würde ich noch die Funktionalität mit Hotspots hinzufügen. Dafür gibt es laut Projektwebseite folgenden Code: <style>
+  .hotspot{
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    border: none;
+    background-color: blue;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  .hotspot[slot="hotspot-hand"]{
+    --min-hotspot-opacity: 0;
+    background-color: red;
+  }
+
+  .hotspot[slot="hotspot-foot"]:not([data-visible]) {
+    background-color: transparent;
+    border: 3px solid blue;
+  }
+
+  .annotation{
+    background-color: #888888;
+    position: absolute;
+    transform: translate(10px, 10px);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  /* This keeps child nodes hidden while the element loads */
+  :not(:defined) > * {
+    display: none;
+  }
+</style>
+<model-viewer id="hotspot-demo" ar ar-modes="webxr" camera-controls touch-action="pan-y" src="../../shared-assets/models/Astronaut.glb" poster="../../assets/poster-astronaut.webp" tone-mapping="aces" shadow-intensity="1" alt="A 3D model of an astronaut.">
+  <button class="hotspot" slot="hotspot-visor" data-position="0 1.75 0.35" data-normal="0 0 1"></button>
+  <button class="hotspot" slot="hotspot-hand" data-position="-0.54 0.93 0.1" data-normal="-0.73 0.05 0.69">
+    <div class="annotation">This hotspot disappears completely</div>
+  </button>
+  <button class="hotspot" slot="hotspot-foot" data-position="0.16 0.1 0.17" data-normal="-0.07 0.97 0.23" data-visibility-attribute="visible"></button>
+  <div class="annotation">This annotation is fixed in screen-space</div>
+</model-viewer> Ich hätte gerne folgendes Verhalten: Ich will auf einen Button klicken, der Hotspot hinzufügen heißt. Dann klicke ich auf eine Position im Modell. Nachdem ich darauf geklickt habe, muss ich den Hotspot mittels eines Labels beschriften. Dann kann ich auf Hotspot speichern klicken. Ich will außerdem immer eine Liste aller Hotspots haben, so dass ich dann Hotspots, die gespeichert wurden auch löschen kann (mittels eines Papierkorb Symbols nebem dem Hotspot in der Liste). Kannst du mir das umsetzen?
